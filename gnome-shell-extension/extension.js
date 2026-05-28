@@ -87,9 +87,25 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
 
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
+        // Claude process state
+        this._menuClaudeState = new PopupMenu.PopupMenuItem('Claude: --', { reactive: false });
+        this.menu.addMenuItem(this._menuClaudeState);
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
         const refreshItem = new PopupMenu.PopupMenuItem('Refresh Now');
         refreshItem.connect('activate', () => this._fetchStatus(true));
         this.menu.addMenuItem(refreshItem);
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
+        // Disclaimer
+        const disclaimer = new PopupMenu.PopupMenuItem(
+            'Estimated data. Run /usage in Claude Code for exact information.',
+            { reactive: false },
+        );
+        disclaimer.label.set_style('font-size: 10px; color: #888888;');
+        this.menu.addMenuItem(disclaimer);
 
         // Initial fetch
         this._fetchStatus(false);
@@ -147,28 +163,57 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
     }
 
     _showError(message) {
+        this._box.set_style(
+            `border: 1px solid ${ANTHROPIC_ORANGE}; border-radius: 8px; padding: 2px 10px; margin: 3px 0;`
+        );
+        this._box.set_opacity(128);  // 50%
         this._cLabel.set_style(`font-size: 14px; padding-right: 4px; color: ${GREY};`);
         this._cLabel.set_text('C:--');
         this._wLabel.set_style(`font-size: 14px; color: ${GREY};`);
         this._wLabel.set_text('W:--');
+        this._menuCurrent.label.set_style(`color: ${GREY};`);
+        this._menuCurrent.label.set_opacity(128);
+        this._menuWeekly.label.set_style(`color: ${GREY};`);
+        this._menuWeekly.label.set_opacity(128);
         this._menuError.label.set_text(`Error: ${message}`);
         this._menuError.visible = true;
+        this._menuClaudeState.label.set_text('Claude: unknown');
+        this._menuClaudeState.label.set_style(`color: ${GREY};`);
     }
 
     _updateUI(data) {
         const hasError = !!data.error;
         const isStale = !!data.stale;
+        const claudeRunning = !!data.claude_running;
         const cColor = hasError ? GREY : (data.c_color || GREY);
         const wColor = hasError ? GREY : (data.w_color || GREY);
-        const opacity = (isStale && !hasError) ? '0.5' : '1.0';
 
-        this._cLabel.set_style(`font-size: 14px; padding-right: 4px; color: ${cColor}; opacity: ${opacity};`);
+        // Determine opacity: not running → 40% on whole box, stale → 50% on labels only
+        if (!claudeRunning) {
+            this._box.set_opacity(128);  // 50%
+        } else {
+            this._box.set_opacity(255);
+        }
+        this._box.set_style(
+            `border: 1px solid ${ANTHROPIC_ORANGE}; border-radius: 8px; padding: 2px 10px; margin: 3px 0;`
+        );
+
+        const labelOpacity = (isStale && !hasError && claudeRunning) ? 128 : 255;  // 50% when stale
+
+        this._cLabel.set_style(`font-size: 14px; padding-right: 4px; color: ${cColor};`);
+        this._cLabel.set_opacity(labelOpacity);
         this._cLabel.set_text(`C:${data.c_pct}%`);
 
-        this._wLabel.set_style(`font-size: 14px; color: ${wColor}; opacity: ${opacity};`);
+        this._wLabel.set_style(`font-size: 14px; color: ${wColor};`);
+        this._wLabel.set_opacity(labelOpacity);
         this._wLabel.set_text(`W:${data.w_pct}%`);
 
+        // Dropdown: same colors and opacity as panel labels
+        this._menuCurrent.label.set_style(`color: ${cColor};`);
+        this._menuCurrent.label.set_opacity(labelOpacity);
         this._menuCurrent.label.set_text(`Current (5h):  ${data.c_pct}%  resets in ${data.c_reset}`);
+        this._menuWeekly.label.set_style(`color: ${wColor};`);
+        this._menuWeekly.label.set_opacity(labelOpacity);
         this._menuWeekly.label.set_text(`Weekly  (7d):  ${data.w_pct}%  resets in ${data.w_reset}`);
 
         if (hasError) {
@@ -183,6 +228,15 @@ class ClaudeUsageIndicator extends PanelMenu.Button {
             this._menuStale.visible = true;
         } else {
             this._menuStale.visible = false;
+        }
+
+        // Claude process state
+        if (claudeRunning) {
+            this._menuClaudeState.label.set_text('Claude: running');
+            this._menuClaudeState.label.set_style('color: #32c850;');
+        } else {
+            this._menuClaudeState.label.set_text('Claude: not running');
+            this._menuClaudeState.label.set_style(`color: ${ANTHROPIC_ORANGE};`);
         }
     }
 

@@ -67,7 +67,7 @@ func LoadEntries(projectsPath string, since, until *time.Time) ([]UsageEntry, er
 	seen := make(map[string]bool)
 	var entries []UsageEntry
 
-	_ = filepath.WalkDir(projectsPath, func(path string, d fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(projectsPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".jsonl") {
 			return nil
 		}
@@ -75,7 +75,9 @@ func LoadEntries(projectsPath string, since, until *time.Time) ([]UsageEntry, er
 		project := filepath.Base(filepath.Dir(path))
 		parseFile(path, sessionID, project, since, until, seen, &entries)
 		return nil
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("walking projects directory: %w", err)
+	}
 
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].Timestamp.Before(entries[j].Timestamp)
@@ -160,6 +162,10 @@ func parseFile(path, sessionID, project string, since, until *time.Time, seen ma
 			SessionID:           sessionID,
 			Project:             project,
 		})
+	}
+	// Check for scanner errors (e.g. line too long, I/O error).
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: error reading %s: %v\n", path, err)
 	}
 }
 

@@ -16,19 +16,24 @@ import (
 	"github.com/Monska85/claude-usage/internal/dashboard"
 	"github.com/Monska85/claude-usage/internal/poller"
 	"github.com/Monska85/claude-usage/internal/pricing"
+	"github.com/Monska85/claude-usage/internal/process"
 	"github.com/Monska85/claude-usage/internal/reader"
 )
 
+// defaultPollTimeout is the HTTP timeout for API polling requests.
+const defaultPollTimeout = 15 * time.Second
+
 // StatusResponse is the JSON structure output by --status mode.
 type StatusResponse struct {
-	CPct   int    `json:"c_pct"`
-	CReset string `json:"c_reset"`
-	CColor string `json:"c_color"`
-	WPct   int    `json:"w_pct"`
-	WReset string `json:"w_reset"`
-	WColor string `json:"w_color"`
-	Stale  bool   `json:"stale"`
-	Error  string `json:"error,omitempty"`
+	CPct          int    `json:"c_pct"`
+	CReset        string `json:"c_reset"`
+	CColor        string `json:"c_color"`
+	WPct          int    `json:"w_pct"`
+	WReset        string `json:"w_reset"`
+	WColor        string `json:"w_color"`
+	Stale         bool   `json:"stale"`
+	ClaudeRunning bool   `json:"claude_running"`
+	Error         string `json:"error,omitempty"`
 }
 
 func main() {
@@ -49,6 +54,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// --status --no-poll needs no credentials at all (pure cache read).
+	// Defer auth.Load() so the fast path avoids disk I/O for credentials.
+	if *status && *noPoll {
+		runStatus(nil, cfg, cachePath, true, false)
+		return
+	}
+
 	creds, err := auth.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading credentials: %v\n", err)
@@ -61,7 +73,7 @@ func main() {
 	}
 
 	if *status {
-		runStatus(creds, cfg, cachePath, *noPoll, *forcePoll)
+		runStatus(creds, cfg, cachePath, false, *forcePoll)
 		return
 	}
 
@@ -78,10 +90,15 @@ func resolveCachePath(cfg *config.Config) (string, error) {
 
 // runPollOnly polls the API and writes cache, with no output.
 func runPollOnly(creds *auth.Credentials, cfg *config.Config, cachePath string) {
-	if creds == nil || creds.IsExpired() {
+	if creds == nil {
+		fmt.Fprintf(os.Stderr, "Error: no credentials found\n")
 		os.Exit(1)
 	}
-	q, err := poller.Poll(creds.AccessToken, cfg.Polling.Model, 15*time.Second)
+	if creds.IsExpired() {
+		fmt.Fprintf(os.Stderr, "Error: credentials expired\n")
+		os.Exit(1)
+	}
+	q, err := poller.Poll(creds.AccessToken, cfg.API.Model, defaultPollTimeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Poll error: %v\n", err)
 		os.Exit(1)
@@ -97,23 +114,30 @@ func runStatus(creds *auth.Credentials, cfg *config.Config, cachePath string, no
 	var pollErr string
 
 	cached := cache.Read(cachePath)
+	claudeRunning := process.IsClaudeRunning()
 
 	if noPoll {
 		if cached == nil {
 			resp := buildStatusResponse(nil, cfg, "no cached data available")
+			resp.ClaudeRunning = claudeRunning
 			outputJSON(resp)
 			return
 		}
 		resp := buildStatusResponse(cached, cfg, "")
+		resp.ClaudeRunning = claudeRunning
 		outputJSON(resp)
 		return
 	}
 
-	canPoll := cfg.Polling.Enabled && creds != nil && !creds.IsExpired()
-	needPoll := forcePoll || cached == nil || !cached.IsFresh(cfg.Polling.Freshness)
+	canPoll := cfg.API.Enabled && creds != nil && !creds.IsExpired()
+	// Skip polling if Claude isn't running and only_when_active is enabled (unless force-poll)
+	if canPoll && cfg.API.IsOnlyWhenActive() && !claudeRunning && !forcePoll {
+		canPoll = false
+	}
+	needPoll := forcePoll || cached == nil || !cached.IsFresh(cfg.API.StaleAfter)
 
 	if canPoll && needPoll {
-		q, err := poller.Poll(creds.AccessToken, cfg.Polling.Model, 15*time.Second)
+		q, err := poller.Poll(creds.AccessToken, cfg.API.Model, defaultPollTimeout)
 		if err != nil {
 			pollErr = err.Error()
 		} else {
@@ -133,17 +157,19 @@ func runStatus(creds *auth.Credentials, cfg *config.Config, cachePath string, no
 	}
 
 	resp := buildStatusResponse(cached, cfg, pollErr)
+	resp.ClaudeRunning = claudeRunning
 	outputJSON(resp)
 }
 
-// outputJSON marshals v to JSON and prints to stdout.
+// outputJSON marshals v to JSON and writes to stdout.
 func outputJSON(v any) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "JSON marshal error: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(string(data))
+	data = append(data, '\n')
+	os.Stdout.Write(data)
 }
 
 // buildStatusResponse constructs a StatusResponse from cached quota data.
@@ -242,23 +268,23 @@ func runDashboard(creds *auth.Credentials, cfg *config.Config, cachePath string,
 
 // pollOrReadCache handles quota polling logic.
 func pollOrReadCache(creds *auth.Credentials, cfg *config.Config, cachePath string, noPoll, forcePoll bool) *cache.QuotaCache {
-	canPoll := cfg.Polling.Enabled && creds != nil && !creds.IsExpired() && !noPoll
+	canPoll := cfg.API.Enabled && creds != nil && !creds.IsExpired() && !noPoll
 
 	if !canPoll {
 		return cache.Read(cachePath)
 	}
 
 	cached := cache.Read(cachePath)
-	needPoll := forcePoll || cached == nil || !cached.IsFresh(cfg.Polling.Freshness)
+	needPoll := forcePoll || cached == nil || !cached.IsFresh(cfg.API.StaleAfter)
 
 	if !needPoll {
 		age := int(cached.AgeSeconds())
-		fmt.Println(dashboard.DimText(fmt.Sprintf("Using cached rate limits (%ds old, fresh < %ds)", age, cfg.Polling.Freshness)))
+		fmt.Println(dashboard.DimText(fmt.Sprintf("Using cached rate limits (%ds old, stale after %ds)", age, cfg.API.StaleAfter)))
 		return cached
 	}
 
 	fmt.Println(dashboard.DimText("Polling API for rate limits..."))
-	q, err := poller.Poll(creds.AccessToken, cfg.Polling.Model, 15*time.Second)
+	q, err := poller.Poll(creds.AccessToken, cfg.API.Model, defaultPollTimeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Poll failed: %v\n", err)
 		return cached

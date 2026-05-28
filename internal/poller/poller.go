@@ -16,6 +16,9 @@ import (
 
 const apiURL = "https://api.anthropic.com/v1/messages"
 
+// maxErrorBodyBytes limits how much of an API error response body we read.
+const maxErrorBodyBytes = 4096
+
 type pollRequest struct {
 	Model    string        `json:"model"`
 	MaxToks  int           `json:"max_tokens"`
@@ -66,8 +69,9 @@ func Poll(accessToken, model string, timeout time.Duration) (*cache.QuotaCache, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		errBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned %d: %s", resp.StatusCode, string(errBody))
+		// Drain (bounded) and discard body — don't include in error to avoid leaking sensitive info.
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorBodyBytes))
+		return nil, fmt.Errorf("API returned %d", resp.StatusCode)
 	}
 	io.Copy(io.Discard, resp.Body)
 
@@ -92,13 +96,24 @@ func parseHeaders(h http.Header) *cache.QuotaCache {
 	}
 
 	return &cache.QuotaCache{
-		Utilization5h: util5h,
+		Utilization5h: clamp01(util5h),
 		Reset5h:       reset5h,
 		Status5h:      status5h,
-		Utilization7d: util7d,
+		Utilization7d: clamp01(util7d),
 		Reset7d:       reset7d,
 		PolledAt:      now.Format(time.RFC3339Nano),
 	}
+}
+
+// clamp01 restricts a float64 value to the [0.0, 1.0] range.
+func clamp01(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
 }
 
 func floatHeader(h http.Header, key string) float64 {
