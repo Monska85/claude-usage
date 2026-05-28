@@ -1,0 +1,87 @@
+version: 2
+
+project_name: claude-usage
+
+builds:
+  - main: ./cmd/claude-usage/
+    binary: claude-usage
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+
+archives:
+  # CLI archive with docs and config
+  - id: cli
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - config.default.yaml
+
+  # Raw binary (no archive wrapper, direct curl download)
+  - id: binary
+    formats:
+      - binary
+    name_template: >-
+      {{ .ProjectName }}_{{ .Os }}_{{ .Arch }}
+
+  # GNOME Shell extension bundle (arch-independent)
+  - id: gnome-extension
+    formats:
+      - zip
+    name_template: "gnome-shell-extension_{{ .Version }}"
+    meta: true
+    files:
+      - src: gnome-shell-extension/extension.js
+        dst: .
+      - src: gnome-shell-extension/metadata.json
+        dst: .
+      - src: gnome-shell-extension/sparkle.svg
+        dst: .
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Refactoring
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^build:"
+
+release:
+  github:
+    owner: Monska85
+    name: claude-usage
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
