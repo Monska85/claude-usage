@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// defaultDisplayStaleSeconds is the threshold for IsStale() used by display/extension.
+// Data older than this is shown with visual staleness indicators.
+const defaultDisplayStaleSeconds = 120
+
 // QuotaCache is the JSON structure stored in the cache file.
 type QuotaCache struct {
 	Utilization5h float64 `json:"utilization_5h"`
@@ -52,9 +56,9 @@ func (c *QuotaCache) IsFresh(freshnessSeconds int) bool {
 	return c.AgeSeconds() < float64(freshnessSeconds)
 }
 
-// IsStale returns true if data is older than 120s (for display).
+// IsStale returns true if data is older than the display staleness threshold.
 func (c *QuotaCache) IsStale() bool {
-	return c.AgeSeconds() > 120
+	return c.AgeSeconds() > defaultDisplayStaleSeconds
 }
 
 // ResetTime5h parses the 5h reset timestamp.

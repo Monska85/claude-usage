@@ -9,11 +9,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Polling struct {
-	Interval  int    `yaml:"interval"`
-	Freshness int    `yaml:"freshness"`
-	Model     string `yaml:"model"`
-	Enabled   bool   `yaml:"enabled"`
+type API struct {
+	Enabled        bool   `yaml:"enabled"`
+	StaleAfter     int    `yaml:"stale_after"`
+	Model          string `yaml:"model"`
+	OnlyWhenActive *bool  `yaml:"only_when_active"`
+}
+
+// IsOnlyWhenActive returns whether polling should only happen when Claude Code is running.
+// Defaults to true if not explicitly set.
+func (a API) IsOnlyWhenActive() bool {
+	if a.OnlyWhenActive == nil {
+		return true
+	}
+	return *a.OnlyWhenActive
 }
 
 type Display struct {
@@ -38,7 +47,7 @@ type Cache struct {
 }
 
 type Config struct {
-	Polling Polling                 `yaml:"polling"`
+	API     API                     `yaml:"api"`
 	Display Display                 `yaml:"display"`
 	Colors  Colors                  `yaml:"colors"`
 	Cache   Cache                   `yaml:"cache"`
@@ -47,12 +56,13 @@ type Config struct {
 
 // Default returns configuration with default values.
 func Default() *Config {
+	onlyWhenActive := true
 	return &Config{
-		Polling: Polling{
-			Interval:  60,
-			Freshness: 50,
-			Model:     "claude-haiku-4-5-20251001",
-			Enabled:   true,
+		API: API{
+			Enabled:        true,
+			StaleAfter:     60,
+			Model:          "claude-haiku-4-5-20251001",
+			OnlyWhenActive: &onlyWhenActive,
 		},
 		Display: Display{
 			ShowCost: true,

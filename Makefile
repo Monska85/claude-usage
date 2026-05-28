@@ -3,14 +3,14 @@ EXT_UUID      := claude-usage@claude-code-usage
 EXT_DIR       := $(HOME)/.local/share/gnome-shell/extensions/$(EXT_UUID)
 INSTALL_DIR   := $(HOME)/.local/bin
 
-.PHONY: build install install-binary install-extension uninstall uninstall-binary uninstall-extension reload-extension test-extension clean
+.PHONY: build install install-binary install-gnome-extension uninstall uninstall-binary uninstall-gnome-extension reload-gnome-extension test-gnome-extension clean
 
 ## Build the Go binary
 build:
 	go build -o $(BINARY_NAME) ./cmd/claude-usage/
 
 ## Install everything
-install: build install-binary install-extension
+install: build install-binary install-gnome-extension
 
 ## Install the Go binary to ~/.local/bin
 install-binary: build
@@ -20,7 +20,7 @@ install-binary: build
 	@echo "Make sure $(INSTALL_DIR) is in your PATH"
 
 ## Install the GNOME Shell extension
-install-extension:
+install-gnome-extension:
 	mkdir -p $(EXT_DIR)
 	cp gnome-shell-extension/extension.js $(EXT_DIR)/
 	cp gnome-shell-extension/metadata.json $(EXT_DIR)/
@@ -28,18 +28,18 @@ install-extension:
 	@echo "Extension installed to $(EXT_DIR)"
 	@echo "Enable with: gnome-extensions enable $(EXT_UUID)"
 
-## Reload extension (disable + enable)
-reload-extension:
+## Reload GNOME Shell extension (disable + enable)
+reload-gnome-extension:
 	gnome-extensions disable $(EXT_UUID) 2>/dev/null || true
 	sleep 1
 	gnome-extensions enable $(EXT_UUID)
 
 ## Run a nested GNOME Shell on Wayland for testing (requires mutter-devkit)
-test-extension: install-extension
+test-gnome-extension: install-gnome-extension
 	dbus-run-session gnome-shell --devkit --wayland
 
 ## Uninstall everything
-uninstall: uninstall-binary uninstall-extension
+uninstall: uninstall-binary uninstall-gnome-extension
 
 ## Remove the binary
 uninstall-binary:
@@ -47,7 +47,7 @@ uninstall-binary:
 	@echo "Removed $(BINARY_NAME) from $(INSTALL_DIR)"
 
 ## Remove the GNOME Shell extension
-uninstall-extension:
+uninstall-gnome-extension:
 	gnome-extensions disable $(EXT_UUID) 2>/dev/null || true
 	rm -rf $(EXT_DIR)
 	@echo "Removed extension $(EXT_UUID)"

@@ -23,6 +23,8 @@ The project should transition from Makefile to a Justfile.
 ## Key Conventions
 
 - Single static binary, no runtime dependencies.
+- **CLI must work on both Linux and macOS.** GNOME extension is Linux-only.
+- Process detection uses `pgrep -x claude` (available on both Linux and macOS). Never use Linux-only mechanisms like `/proc` scanning.
 - GNOME extension calls the CLI (`claude-usage --status`) as its sole API — no direct file I/O, no formatting logic.
 - Extension is a pure renderer: CLI returns raw data (percentages, reset times, colors, stale flag), extension formats display text.
 - Extension binary lookup: `$PATH` first, then `~/.local/bin/` fallback (GNOME Shell's PATH often excludes `~/.local/bin`).
@@ -41,9 +43,14 @@ The `--status` flag outputs a JSON object consumed by the extension and other to
 
 ```json
 {
-  "c_pct": 42,       "c_reset": "3h12m",  "c_color": "#32c850",
-  "w_pct": 67,       "w_reset": "5d02h",  "w_color": "#e6961e",
+  "c_pct": 42,
+  "c_reset": "3h12m",
+  "c_color": "#32c850",
+  "w_pct": 67,
+  "w_reset": "5d02h",
+  "w_color": "#e6961e",
   "stale": false,
+  "claude_running": true,
   "error": ""
 }
 ```
@@ -52,11 +59,13 @@ The `--status` flag outputs a JSON object consumed by the extension and other to
 - `c_reset`/`w_reset` — human-readable time until rate-limit window resets.
 - `c_color`/`w_color` — hex color based on config thresholds.
 - `stale` — true if cached data is older than the configured freshness window.
+- `claude_running` — true if a Claude Code process is currently running.
 - `error` — non-empty on failure (no credentials, poll error, no cached data).
 
 Flag combinations:
-- `--status` — returns cached data if fresh, polls API if stale.
-- `--status --force-poll` — always polls API regardless of cache freshness.
+
+- `--status` — returns cached data if fresh, polls API if stale and Claude Code is running (or `only_when_active: false`).
+- `--status --force-poll` — always polls API regardless of cache freshness or Claude Code state.
 - `--status --no-poll` — returns cached data only, never polls. Error `"no cached data available"` if no cache exists.
 
 ### Extension Runtime Behavior
@@ -64,8 +73,20 @@ Flag combinations:
 - Panel shows compact `C:42%  W:67%` (no reset times — those are in dropdown only).
 - 30s timer calls `claude-usage --status` (CLI decides whether to poll or use cache).
 - "Refresh Now" button calls `claude-usage --status --force-poll`.
-- When `stale: true`: panel text at 50% opacity, dropdown shows orange "Cached data may be outdated" warning.
-- When `error` is set: panel shows grey `C:--  W:--`, dropdown shows red error text.
+- When `claude_running: false`: entire indicator (icon, border, labels) fades to 50% opacity.
+- When `stale: true` (Claude running): panel labels and dropdown text at 50% opacity, dropdown shows orange "Cached data may be outdated" warning.
+- When `error` is set: panel shows grey `C:--  W:--` at 50% opacity, dropdown shows red error text, Claude state shows "unknown" in grey.
+- Dropdown menu layout:
+  1. Current (5h) line -- colored same as panel C label
+  2. Weekly (7d) line -- colored same as panel W label
+  3. Error text (red, hidden if no error)
+  4. Stale warning (orange, hidden if not stale)
+  5. Separator
+  6. Claude state: "running" (green) / "not running" (orange) / "unknown" (grey on error)
+  7. Separator
+  8. "Refresh Now" button
+  9. Separator
+  10. Disclaimer (small grey text): "Estimated data. Run /usage in Claude Code for exact information."
 
 ### Project Structure
 
@@ -81,6 +102,7 @@ internal/
   dashboard/          Lipgloss TUI rendering (tables, bars, panels)
   poller/             1-token Haiku API polling, rate-limit header parsing
   pricing/            Per-model pricing table with prefix fallback
+  process/            Claude Code process detection (pgrep-based, cross-platform)
   reader/             JSONL conversation log parser (filepath.WalkDir)
 gnome-shell-extension/
   extension.js        GNOME Shell panel indicator
@@ -170,8 +192,8 @@ No test files exist yet. When adding tests:
 
 - `make install` — writes binary to `~/.local/bin`, copies extension files
 - `make install-binary` — writes binary to `~/.local/bin`
-- `make install-extension` — copies files to GNOME extensions directory
-- `make reload-extension` — disables and re-enables the GNOME extension
+- `make install-gnome-extension` — copies files to GNOME extensions directory
+- `make reload-gnome-extension` — disables and re-enables the GNOME extension
 - `go get <package>` — modifies `go.mod` and `go.sum`
 - `git push`, `git commit`
 
@@ -179,14 +201,14 @@ No test files exist yet. When adding tests:
 
 - `make uninstall` — removes installed binary and extension
 - `make uninstall-binary` — deletes binary from `~/.local/bin`
-- `make uninstall-extension` — runs `rm -rf` on extension directory
+- `make uninstall-gnome-extension` — runs `rm -rf` on extension directory
 - `make clean` — removes build artifacts
 - `git push --force`
 
 ## Important Rules
 
 - After any Go code change, always run `make build` to verify compilation. Then ask the user if they want to install the binary (`make install-binary`).
-- After any extension JS change, ask the user if they want to install the extension (`make install-extension`).
+- After any extension JS change, ask the user if they want to install the extension (`make install-gnome-extension`).
 - Never discard `os.UserHomeDir()` errors — propagate or handle them.
 - Cache directory permissions must be `0700`, not `0755`.
 - Extension JS errors must be logged (`log()`), never silently swallowed in catch blocks.

@@ -1,14 +1,16 @@
 # Claude Code Usage Monitor - Default Configuration
 
-polling:
-  # Interval between polls (seconds)
-  interval: 60
-  # Cache freshness threshold - skip poll if cache is newer (seconds)
-  freshness: 50
+api:
+  # Enable API polling
+  enabled: true
+  # Cache older than this (seconds) triggers a new API call
+  stale_after: 60
   # Model used for polling (cheapest, 1 token per poll)
   model: claude-haiku-4-5-20251001
-  # Set false to disable polling entirely
-  enabled: true
+  # Only poll when Claude Code is running (default: true)
+  # Set false to always poll when cache is stale, regardless of Claude's state
+  # Note: --force-poll bypasses both only_when_active and stale_after
+  only_when_active: true
 
 display:
   # Show estimated API-equivalent cost

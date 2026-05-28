@@ -39,7 +39,7 @@ make install-binary
 ### Extension only
 
 ```bash
-make install-extension
+make install-gnome-extension
 gnome-extensions enable claude-usage@claude-code-usage
 ```
 
@@ -92,8 +92,14 @@ C:42%  W:67%
 - **C** — Current period (5h window) utilization
 - **W** — Weekly period (7d window) utilization
 - Color-coded: green (<80%), orange (80–89%), red (>=90%)
-- Dimmed at 50% opacity when data is stale
-- Click for a dropdown with detailed stats (reset times, stale warning) and a "Refresh Now" button
+- Faded to 50% opacity when Claude Code is not running
+- Labels dimmed at 50% opacity when data is stale
+- Click for a dropdown with:
+  - Current/Weekly stats with reset times (same colors as panel)
+  - Stale data warning (orange) when applicable
+  - Claude Code process state: running (green) / not running (orange)
+  - "Refresh Now" button
+  - Disclaimer noting data is estimated
 - Calls `claude-usage --status` every 30s; all logic lives in the CLI
 - "Refresh Now" uses `--status --force-poll` to trigger an API call
 - Binary lookup: checks `$PATH` first, falls back to `~/.local/bin/claude-usage`
@@ -105,11 +111,11 @@ Default config location: `~/.config/claude-code-usage/config.yaml`
 See [`config.default.yaml`](config.default.yaml) for all options:
 
 ```yaml
-polling:
-  interval: 60 # seconds between polls
-  freshness: 50 # skip poll if cache newer than this
-  model: claude-haiku-4-5-20251001
+api:
   enabled: true
+  stale_after: 60 # seconds — poll API if cache is older than this
+  model: claude-haiku-4-5-20251001
+  only_when_active: true # only poll when Claude Code is running
 
 display:
   show_cost: true
@@ -131,7 +137,7 @@ cache:
 Requires `mutter-devkit` package (Arch: `mutter`):
 
 ```bash
-make test-extension
+make test-gnome-extension
 ```
 
 This installs the extension and launches a nested GNOME Shell via `dbus-run-session gnome-shell --devkit --wayland`.
