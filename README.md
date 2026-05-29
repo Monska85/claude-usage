@@ -98,6 +98,7 @@ C:42%  W:67%
   - Current/Weekly stats with reset times (same colors as panel)
   - Stale data warning (orange) when applicable
   - Claude Code process state: running (green) / not running (orange)
+  - Auth state when not valid: expired (orange) / missing (red)
   - "Refresh Now" button
   - Disclaimer noting data is estimated
 - Calls `claude-usage --status` every 30s; all logic lives in the CLI

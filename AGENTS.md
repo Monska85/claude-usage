@@ -51,16 +51,18 @@ The `--status` flag outputs a JSON object consumed by the extension and other to
   "w_color": "#e6961e",
   "stale": false,
   "claude_running": true,
+  "auth": "valid",
   "error": ""
 }
 ```
 
-- `c_pct`/`w_pct` — current (5h) and weekly (7d) utilization percentage (0–100).
-- `c_reset`/`w_reset` — human-readable time until rate-limit window resets.
-- `c_color`/`w_color` — hex color based on config thresholds.
-- `stale` — true if cached data is older than the configured freshness window.
-- `claude_running` — true if a Claude Code process is currently running.
-- `error` — non-empty on failure (no credentials, poll error, no cached data).
+- `c_pct`/`w_pct` -- current (5h) and weekly (7d) utilization percentage (0-100).
+- `c_reset`/`w_reset` -- human-readable time until rate-limit window resets.
+- `c_color`/`w_color` -- hex color based on config thresholds.
+- `stale` -- true if cached data is older than the configured freshness window.
+- `claude_running` -- true if a Claude Code process is currently running.
+- `auth` -- credential state: `"valid"`, `"expired"`, `"missing"`, or `"unknown"`.
+- `error` -- non-empty on failure (no credentials, poll error, no cached data).
 
 Flag combinations:
 
@@ -83,10 +85,11 @@ Flag combinations:
   4. Stale warning (orange, hidden if not stale)
   5. Separator
   6. Claude state: "running" (green) / "not running" (orange) / "unknown" (grey on error)
-  7. Separator
-  8. "Refresh Now" button
-  9. Separator
-  10. Disclaimer (small grey text): "Estimated data. Run /usage in Claude Code for exact information."
+  7. Auth state (hidden when valid): "expired" (orange) / "missing" (red) / "unknown" (grey)
+  8. Separator
+  9. "Refresh Now" button
+  10. Separator
+  11. Disclaimer (small grey text): "Estimated data. Run /usage in Claude Code for exact information."
 
 ### Project Structure
 
