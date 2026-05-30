@@ -107,10 +107,11 @@ internal/
   pricing/            Per-model pricing table with prefix fallback
   process/            Claude Code process detection (pgrep-based, cross-platform)
   reader/             JSONL conversation log parser (filepath.WalkDir)
-gnome-shell-extension/
-  extension.js        GNOME Shell panel indicator
-  metadata.json       Extension UUID and shell version compatibility
-  sparkle.svg         Panel icon (8-point starburst)
+readers/
+  gnome-shell-extension/
+    extension.js        GNOME Shell panel indicator
+    metadata.json       Extension UUID and shell version compatibility
+    sparkle.svg         Panel icon (8-point starburst)
 ```
 
 ## Code Style
