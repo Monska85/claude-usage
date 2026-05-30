@@ -43,8 +43,21 @@ func CredentialsPath() (string, error) {
 	return filepath.Join(home, ".claude", ".credentials.json"), nil
 }
 
-// Load reads OAuth credentials from disk. Returns nil if not found.
+// Load reads OAuth credentials. On macOS it tries the Keychain first, then
+// falls back to the credentials file. On other platforms only the file is read.
+// Returns nil if not found.
 func Load() (*Credentials, error) {
+	// Try macOS Keychain first (no-op on other platforms)
+	if data, err := readKeychain(); err != nil {
+		return nil, err
+	} else if data != nil {
+		if creds, err := parseCredentials(data); err == nil && creds != nil {
+			return creds, nil
+		}
+		// If keychain data doesn't parse, fall through to file
+	}
+
+	// Fall back to credentials file
 	credPath, err := CredentialsPath()
 	if err != nil {
 		return nil, err
