@@ -11,9 +11,9 @@ CLI dashboard + GNOME Shell extension for monitoring Claude Code usage. Reads ra
 Local Go toolchain required. No Docker.
 
 ```bash
-make build           # Build the binary
-make install         # Build + install binary to ~/.local/bin + install GNOME extension
-make install-binary  # Binary only
+make build-cli       # Build the binary
+make install-cli     # Build + install binary to ~/.local/bin
+make install-gnome-extension  # Install GNOME extension
 ```
 
 Ensure `~/.local/bin` is in `PATH`.
@@ -86,6 +86,7 @@ Flag combinations:
 
 ```
 cmd/claude-usage/     CLI entry point (main.go)
+config.default.yaml   Default configuration template
 internal/
   analyzer/           Token aggregation, time periods, per-model breakdown
   auth/               OAuth credential loading from ~/.claude/
@@ -192,7 +193,8 @@ Before adding or upgrading any dependency:
 
 ### Safe (run autonomously)
 
-- `make build` — compile the binary
+- `make build-cli` — compile the binary
+- `make lint-cli` — run linter
 - `go vet ./...` — static analysis
 - `go build ./...` — verify compilation
 - `go mod verify` — verify dependency checksums
@@ -200,8 +202,7 @@ Before adding or upgrading any dependency:
 
 ### Dangerous (ask user first)
 
-- `make install` — writes binary to `~/.local/bin`, copies extension files
-- `make install-binary` — writes binary to `~/.local/bin`
+- `make install-cli` — writes binary to `~/.local/bin`
 - `make install-gnome-extension` — copies files to GNOME extensions directory
 - `make reload-gnome-extension` — disables and re-enables the GNOME extension
 - `go get <package>` — modifies `go.mod` and `go.sum`
@@ -209,8 +210,7 @@ Before adding or upgrading any dependency:
 
 ### Destructive (never run)
 
-- `make uninstall` — removes installed binary and extension
-- `make uninstall-binary` — deletes binary from `~/.local/bin`
+- `make uninstall-cli` — deletes binary from `~/.local/bin`
 - `make uninstall-gnome-extension` — runs `rm -rf` on extension directory
 - `make clean` — removes build artifacts
 - `git push --force`
@@ -219,7 +219,7 @@ Before adding or upgrading any dependency:
 
 ## Important Rules
 
-- After any Go code change, always run `make build` to verify compilation. Then ask the user if they want to install the binary (`make install-binary`).
+- After any Go code change, always run `make build-cli` to verify compilation. Then ask the user if they want to install the binary (`make install-cli`).
 - After any extension JS change, ask the user if they want to install the extension (`make install-gnome-extension`).
 - Never discard `os.UserHomeDir()` errors — propagate or handle them.
 - Cache directory permissions must be `0700`, not `0755`.
