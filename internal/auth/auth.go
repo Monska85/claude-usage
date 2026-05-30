@@ -57,6 +57,12 @@ func Load() (*Credentials, error) {
 		return nil, err
 	}
 
+	return parseCredentials(data)
+}
+
+// parseCredentials parses raw JSON credential data, handling both nested
+// (claudeAiOauth key) and top-level formats. Returns nil if no accessToken.
+func parseCredentials(data []byte) (*Credentials, error) {
 	// Try nested structure first (claudeAiOauth key)
 	var wrapper credentialsFile
 	if err := json.Unmarshal(data, &wrapper); err != nil {

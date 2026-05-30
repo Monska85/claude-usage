@@ -2,8 +2,14 @@ version: 2
 
 project_name: claude-usage
 
+before:
+  hooks:
+    - go mod tidy
+    - go test -short ./...
+
 builds:
-  - main: ./cmd/claude-usage/
+  - id: cli
+    main: ./cmd/claude-usage/
     binary: claude-usage
     env:
       - CGO_ENABLED=0
@@ -15,10 +21,16 @@ builds:
       - arm64
     ldflags:
       - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
 
 archives:
   # CLI archive with docs and config
   - id: cli
+    builds:
+      - cli
     formats:
       - tar.gz
     name_template: >-
@@ -30,6 +42,8 @@ archives:
 
   # Raw binary (no archive wrapper, direct curl download)
   - id: binary
+    builds:
+      - cli
     formats:
       - binary
     name_template: >-
