@@ -17,7 +17,7 @@ Claude Code has no public usage API. This tool polls the Anthropic API with a mi
 ## Requirements
 
 - Go 1.23+ (build only)
-- Claude Code with valid credentials at `~/.claude/.credentials.json`
+- Claude Code with valid credentials at `~/.claude/.credentials.json` (on macOS, Keychain credentials are also supported)
 - GNOME Shell 45–50 (for the extension)
 
 ## Installation
@@ -25,7 +25,8 @@ Claude Code has no public usage API. This tool polls the Anthropic API with a mi
 ### Build and install everything
 
 ```bash
-make install
+make install-cli
+make install-gnome-extension
 ```
 
 This builds the binary, installs it to `~/.local/bin/claude-usage`, and copies the GNOME Shell extension.
@@ -33,7 +34,7 @@ This builds the binary, installs it to `~/.local/bin/claude-usage`, and copies t
 ### Binary only
 
 ```bash
-make install-binary
+make install-cli
 ```
 
 ### Extension only
@@ -52,6 +53,9 @@ gnome-extensions enable claude-usage@claude-code-usage
 ```bash
 # Full dashboard with polling
 claude-usage
+
+# Show version
+claude-usage --version
 
 # Skip polling, use cached data
 claude-usage --no-poll
@@ -146,7 +150,8 @@ This installs the extension and launches a nested GNOME Shell via `dbus-run-sess
 ## Uninstall
 
 ```bash
-make uninstall
+make uninstall-cli
+make uninstall-gnome-extension
 ```
 
 ## How polling works
