@@ -78,18 +78,7 @@ Flag combinations:
 - When `claude_running: false`: entire indicator (icon, border, labels) fades to 50% opacity.
 - When `stale: true` (Claude running): panel labels and dropdown text at 50% opacity, dropdown shows orange "Cached data may be outdated" warning.
 - When `error` is set: panel shows grey `C:--  W:--` at 50% opacity, dropdown shows red error text, Claude state shows "unknown" in grey.
-- Dropdown menu layout:
-  1. Current (5h) line -- colored same as panel C label
-  2. Weekly (7d) line -- colored same as panel W label
-  3. Error text (red, hidden if no error)
-  4. Stale warning (orange, hidden if not stale)
-  5. Separator
-  6. Claude state: "running" (green) / "not running" (orange) / "unknown" (grey on error)
-  7. Auth state (hidden when valid): "expired" (orange) / "missing" (red) / "unknown" (grey)
-  8. Separator
-  9. "Refresh Now" button
-  10. Separator
-  11. Disclaimer (small grey text): "Estimated data. Run /usage in Claude Code for exact information."
+- Dropdown menu layout (top to bottom, separated by dividers): Current (5h) + Weekly (7d) usage lines (colored) | error text (red) | stale warning (orange) | Claude state: running/not running/unknown | auth state (hidden when valid) | "Refresh Now" button | disclaimer (grey).
 
 ### Project Structure
 
@@ -120,7 +109,7 @@ readers/
 - **JavaScript** (extension): 4-space indent, GJS/GNOME Shell API conventions.
 - **YAML/JSON**: 2-space indent.
 - `.editorconfig` enforces these settings.
-- No golangci-lint configured yet — consider adding `.golangci.yml`.
+- Linting: `make lint-cli` runs golangci-lint (config in `.golangci.yml`, v2 format).
 
 ## Git Workflow
 
@@ -148,6 +137,34 @@ Keep the description lowercase, imperative, no period.
 - Always rebase onto `main` before pushing. No merge commits.
 - Use `--force-with-lease` (never `--force`) after rebasing.
 
+### Releases
+
+Releases are fully automated via GoReleaser. **Never create GitHub releases manually** (no `gh release create`, no API calls to create releases). GoReleaser owns the entire release lifecycle: building binaries, creating the GitHub release, generating the changelog, and uploading artifacts.
+
+To release a new version:
+
+1. Ensure `main` is up to date and CI is green.
+2. Tag the commit: `git tag v<major>.<minor>.<patch>`.
+3. Push the tag: `git push origin v<major>.<minor>.<patch>`.
+4. The `release.yml` workflow triggers automatically and GoReleaser handles everything.
+
+Follow [Semantic Versioning](https://semver.org/):
+
+- `patch`: bug fixes, dependency updates, internal refactors.
+- `minor`: new features, new CLI flags, new reader support.
+- `major`: breaking changes to `--status` JSON schema or config format.
+
+Pre-release tags (e.g., `v1.0.0-rc.1`) are detected automatically (`prerelease: auto` in `.goreleaser.yaml`).
+
+**Never delete or overwrite an existing tag.** If a release is broken, fix forward with a new patch version.
+
+## CI/CD
+
+Two GitHub Actions workflows in `.github/workflows/`:
+
+- **`ci.yml`** — PRs to `main`. Matrix: `ubuntu-latest` + `macos-latest`. Steps: `go mod verify`, `go vet`, `go test -v -short -count=1 ./...`, `go build`. Separate ubuntu-only `lint` job runs `make lint-cli`. All checks must pass before merging.
+- **`release.yml`** — triggers on `v*` tags. Runs GoReleaser (build, release, changelog, artifacts). See [Releases](#releases).
+
 ## Package Management
 
 ### Go
@@ -158,29 +175,18 @@ Keep the description lowercase, imperative, no period.
 
 ### Dependency Safety
 
-Before adding or upgrading any dependency, follow these rules:
+Before adding or upgrading any dependency:
 
-1. **Never assume you know the latest version.** Your training data is outdated. Always verify against the live registry before adding or upgrading any package.
-
-2. **Check the live registry:**
-
-   ```bash
-   curl -s "https://proxy.golang.org/<module>/@latest" | jq .
-   ```
-
-3. **Use the newest stable major version** compatible with Go 1.23. Check actual compatibility metadata.
-
-4. **Avoid releases published within the last 5 days** to reduce supply chain attack risk. Check the release date from the registry response.
-
-5. **Always run `go mod tidy`** after changing dependencies, then verify with `go mod verify`.
+- **Never assume you know the latest version.** Always check the live registry: `curl -s "https://proxy.golang.org/<module>/@latest" | jq .`
+- Use the newest stable major version compatible with Go 1.23.
+- Avoid releases published within the last 5 days (supply chain risk).
+- Always run `go mod tidy` then `go mod verify` after changes.
 
 ## Testing
 
-No test files exist yet. When adding tests:
-
 - Place `*_test.go` files alongside the code they test in `internal/*/`.
-- Run with `go test ./...`.
-- Add a `make test` target (or `just test` after Justfile migration).
+- Run: `go test ./...` (or `go test -v -short -count=1 ./...` for CI-style).
+- Run single package: `go test ./internal/poller/`.
 
 ## Command Safety
 
@@ -208,6 +214,8 @@ No test files exist yet. When adding tests:
 - `make uninstall-gnome-extension` — runs `rm -rf` on extension directory
 - `make clean` — removes build artifacts
 - `git push --force`
+- `gh release create` — GoReleaser manages releases; manual creation causes conflicts
+- `goreleaser release` — must run in CI, never locally
 
 ## Important Rules
 
@@ -220,5 +228,3 @@ No test files exist yet. When adding tests:
 - Use `strings.HasPrefix` for prefix matching, not manual slice comparison.
 - Pre-allocate slices when the capacity is known or estimable.
 - Run `go vet ./...` before every commit.
-- Follow conventional commits.
-- Verify dependency versions against the live Go module proxy before adding.
