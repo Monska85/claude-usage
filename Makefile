@@ -68,9 +68,9 @@ install-cli: build-cli
 ## Install the GNOME Shell extension
 install-gnome-extension:
 	mkdir -p $(EXT_DIR)
-	cp gnome-shell-extension/extension.js $(EXT_DIR)/
-	cp gnome-shell-extension/metadata.json $(EXT_DIR)/
-	cp gnome-shell-extension/sparkle.svg $(EXT_DIR)/
+	cp readers/gnome-shell-extension/extension.js $(EXT_DIR)/
+	cp readers/gnome-shell-extension/metadata.json $(EXT_DIR)/
+	cp readers/gnome-shell-extension/sparkle.svg $(EXT_DIR)/
 	@echo "Extension installed to $(EXT_DIR)"
 	@echo "Enable with: gnome-extensions enable $(EXT_UUID)"
 

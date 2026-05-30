@@ -56,11 +56,11 @@ archives:
     name_template: "gnome-shell-extension_{{ .Version }}"
     meta: true
     files:
-      - src: gnome-shell-extension/extension.js
+      - src: readers/gnome-shell-extension/extension.js
         dst: .
-      - src: gnome-shell-extension/metadata.json
+      - src: readers/gnome-shell-extension/metadata.json
         dst: .
-      - src: gnome-shell-extension/sparkle.svg
+      - src: readers/gnome-shell-extension/sparkle.svg
         dst: .
 
 checksum:
